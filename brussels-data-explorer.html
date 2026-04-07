@@ -500,6 +500,26 @@
     font-weight: 600;
   }
 
+  .lang-btn {
+    margin-left: 12px;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    text-decoration: none;
+    letter-spacing: 0.08em;
+    transition: all 0.15s;
+  }
+  .lang-btn:hover {
+    color: var(--text);
+    border-color: var(--accent2);
+    background: var(--surface2);
+  }
+
   .no-data-hint {
     font-family: var(--mono);
     font-size: 9px;
@@ -541,6 +561,7 @@
 <header>
   <div class="logo">BXL<span>·</span>DataMap <span>/ Sociaal-economische Analyse</span></div>
   <div class="header-info" id="header-info">59 wijken · 24 indicatoren · Brussel</div>
+  <a class="lang-btn" href="brussels-data-explorer-en.html">EN</a>
 </header>
 
 <!-- LEFT PANEL -->
