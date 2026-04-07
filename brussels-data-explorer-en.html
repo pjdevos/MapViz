@@ -560,7 +560,7 @@
 
 <header>
   <div class="logo">BXL<span>·</span>DataMap <span>/ Socio-economic Analysis</span></div>
-  <div class="header-info" id="header-info">59 districts · 24 indicators · Brussels</div>
+  <div class="header-info" id="header-info">59 districts · 39 indicators · Brussels</div>
   <a class="lang-btn" href="brussels-data-explorer.html">NL</a>
 </header>
 
@@ -657,14 +657,20 @@ const reversedVars = ["werkloosheidsgraad", "ocmw_aandeel", "ondoordringbaar", "
 
 const VAR_GROUPS = [
   { id: 'bevolking', label: 'Population', vars: [
-      'totale_bevolking','bevolkdicht','aantal_mannen','aantal_vrouwen','geslachtsverhouding','oppervlakte'
+      'totale_bevolking','bevolkdicht','oppervlakte','aantal_mannen','aantal_vrouwen',
+      'geslachtsverhouding','aandeel_65_79','aandeel_80plus','senioriteitscoeff',
+      'alleenwonenden_65plus'
   ]},
   { id: 'milieu', label: 'Environment', vars: [
-      'ondoordringbaar','groene_nabijheid','vegetatiegraad','bedekkingsgraad_veg','pm25','no2'
+      'ondoordringbaar','groene_nabijheid','vegetatiegraad','bedekkingsgraad_veg',
+      'pm25','no2','geluid_lden','geluid_ln'
   ]},
   { id: 'sociaal_eco', label: 'Socio-economic', vars: [
       'ocmw_aandeel','sociale_woningen','tegemoetkoming','mediaan_inkomen',
-      'mediaan_app_prijs','werkloosheidsgraad','aantal_verkopen_app'
+      'mediaan_app_prijs','werkloosheidsgraad','aantal_verkopen_app',
+      'aandeel_fransen','aandeel_eu14','aandeel_nieuwe_eu','aandeel_turken',
+      'aandeel_latijns_amerika','aandeel_noord_afrika','aandeel_sub_sahara',
+      'totaal_vreemdelingen','gemeentelijke_verkozenen'
   ]},
   { id: 'kwetsbaarheid', label: 'Heat vulnerability', vars: [
       'kwetsbaarheid_totaal','kwetsbaarheid_sociaal_eco','kwetsbaarheid_demografisch',
@@ -1287,6 +1293,15 @@ async function loadData() {
     werkloosheidsgraad: "Unemployment rate",
     geluid_lden: "Traffic noise Lden",
     geluid_ln: "Traffic noise Ln",
+    aandeel_fransen: "Share French nationals",
+    aandeel_nieuwe_eu: "New EU member states",
+    aandeel_turken: "Share Turkish nationals",
+    aandeel_eu14: "EU-14 nationals",
+    aandeel_latijns_amerika: "Latin America",
+    aandeel_noord_afrika: "North Africa",
+    aandeel_sub_sahara: "Sub-Saharan Africa",
+    totaal_vreemdelingen: "Total foreigners",
+    gemeentelijke_verkozenen: "Municipal representatives",
     alleenwonenden_65plus: "Living alone 65+",
     aandeel_65_79: "Share 65-79 years",
     aandeel_80plus: "Share 80+",

@@ -161,6 +161,18 @@ const INDICATOR_MAP = [
   { prefix: "Aandeel van de 65-79 jarigen", key: "aandeel_65_79", label: "Aandeel 65-79 jaar", unit: "%" },
   { prefix: "Aandeel van de 80 jaar en ouder", key: "aandeel_80plus", label: "Aandeel 80+", unit: "%" },
   { prefix: "Senioriteitsco", key: "senioriteitscoeff", label: "Senioriteitscoëff. (80+/60+)", unit: "%" },
+  { prefix: "Verkeersgeluid (multi-blootstelling): Lden", key: "geluid_lden", label: "Verkeersgeluid Lden", unit: "dB(A)" },
+  { prefix: "Verkeersgeluid (multi-blootstelling): indicator Ln", key: "geluid_ln", label: "Verkeersgeluid Ln", unit: "dB(A)" },
+  { prefix: "Aandeel alleenwonenden van 65 jaar", key: "alleenwonenden_65plus", label: "Alleenwonenden 65+", unit: "%" },
+  { prefix: "Aandeel Fransen", key: "aandeel_fransen", label: "Aandeel Fransen", unit: "%" },
+  { prefix: "Aandeel van de nieuwe lidstaten van de EU", key: "aandeel_nieuwe_eu", label: "Nieuwe EU-lidstaten", unit: "%" },
+  { prefix: "Aandeel van de Turken", key: "aandeel_turken", label: "Aandeel Turken", unit: "%" },
+  { prefix: "Aandeel van Europa van 14", key: "aandeel_eu14", label: "Europa van 14", unit: "%" },
+  { prefix: "Aandeel van Latijns-Amerika", key: "aandeel_latijns_amerika", label: "Latijns-Amerika", unit: "%" },
+  { prefix: "Aandeel van Noord-Afrika", key: "aandeel_noord_afrika", label: "Noord-Afrika", unit: "%" },
+  { prefix: "Aandeel van Sub-Saharisch Afrika", key: "aandeel_sub_sahara", label: "Sub-Saharisch Afrika", unit: "%" },
+  { prefix: "Totaal aantal vreemdelingen", key: "totaal_vreemdelingen", label: "Totaal vreemdelingen", unit: "personen" },
+  { prefix: "Vertegenwoordiging van gemeentelijke verkozenen", key: "gemeentelijke_verkozenen", label: "Gemeentelijke verkozenen", unit: "" },
   { prefix: "Aantal mannen", key: "aantal_mannen", label: "Aantal mannen", unit: "personen" },
   { prefix: "Aantal vrouwen", key: "aantal_vrouwen", label: "Aantal vrouwen", unit: "personen" },
   { prefix: "Geslachtsverhouding", key: "geslachtsverhouding", label: "Geslachtsverhouding", unit: "%" },
@@ -181,12 +193,7 @@ function convertExcel() {
   console.log("\nParsing Excel...");
   // Gebruik het bestand mét kwetsbaarheidsindex-kolommen indien beschikbaar,
   // anders val terug op het origineel.
-  const xlsxFile = (() => {
-    const withIndex = join(ROOT, "Data Brussels Neighborhoods v2 + Kwetsbaarheidsindex.xlsx");
-    const original  = join(ROOT, "Data Brussels Neighborhoods v2.xlsx");
-    try { XLSX.readFile(withIndex); return withIndex; } catch (_) {}
-    return original;
-  })();
+  const xlsxFile = join(ROOT, "Data Brussels Neighborhoods v2.xlsx");
   console.log(`  Bestand: ${xlsxFile.split("/").pop()}`);
   const wb = XLSX.readFile(xlsxFile);
   const ws = wb.Sheets[wb.SheetNames[0]];

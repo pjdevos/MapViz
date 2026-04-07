@@ -560,7 +560,7 @@
 
 <header>
   <div class="logo">BXL<span>·</span>DataMap <span>/ Sociaal-economische Analyse</span></div>
-  <div class="header-info" id="header-info">59 wijken · 24 indicatoren · Brussel</div>
+  <div class="header-info" id="header-info">59 wijken · 39 indicatoren · Brussel</div>
   <a class="lang-btn" href="brussels-data-explorer-en.html">EN</a>
 </header>
 
@@ -658,14 +658,20 @@ const reversedVars = ["werkloosheidsgraad", "ocmw_aandeel", "ondoordringbaar", "
 
 const VAR_GROUPS = [
   { id: 'bevolking', label: 'Bevolking', vars: [
-      'totale_bevolking','bevolkdicht','aantal_mannen','aantal_vrouwen','geslachtsverhouding','oppervlakte'
+      'totale_bevolking','bevolkdicht','oppervlakte','aantal_mannen','aantal_vrouwen',
+      'geslachtsverhouding','aandeel_65_79','aandeel_80plus','senioriteitscoeff',
+      'alleenwonenden_65plus'
   ]},
   { id: 'milieu', label: 'Milieu', vars: [
-      'ondoordringbaar','groene_nabijheid','vegetatiegraad','bedekkingsgraad_veg','pm25','no2'
+      'ondoordringbaar','groene_nabijheid','vegetatiegraad','bedekkingsgraad_veg',
+      'pm25','no2','geluid_lden','geluid_ln'
   ]},
   { id: 'sociaal_eco', label: 'Sociaal-economisch', vars: [
       'ocmw_aandeel','sociale_woningen','tegemoetkoming','mediaan_inkomen',
-      'mediaan_app_prijs','werkloosheidsgraad','aantal_verkopen_app'
+      'mediaan_app_prijs','werkloosheidsgraad','aantal_verkopen_app',
+      'aandeel_fransen','aandeel_eu14','aandeel_nieuwe_eu','aandeel_turken',
+      'aandeel_latijns_amerika','aandeel_noord_afrika','aandeel_sub_sahara',
+      'totaal_vreemdelingen','gemeentelijke_verkozenen'
   ]},
   { id: 'kwetsbaarheid', label: 'Hittekwetsbaarheid', vars: [
       'kwetsbaarheid_totaal','kwetsbaarheid_sociaal_eco','kwetsbaarheid_demografisch',
