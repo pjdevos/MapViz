@@ -56,6 +56,12 @@ MapVizApp/
   - **Hittekwetsbaarheid/Heat vulnerability** (5 vars): composite vulnerability indices
 - Click district → slider panel to adjust independent variables
 - Real-time regression prediction of dependent variable
+- Four statistical models (dropdown selector):
+  - **Linear** — weighted bivariate linear regression (r²-weighted)
+  - **Polynomial (deg 2)** — quadratic fit via normal equations + Gaussian elimination
+  - **Regression tree (CART)** — binary recursive partitioning, max depth=3, min leaf=5
+  - **k-NN (k=7)** — Euclidean distance with min-max normalization
+- Model-aware R² and RMSE in stats bar
 - Correlation matrix (Pearson)
 - Scatterplot (first independent vs dependent variable)
 - Time series with year slider (1981–2025, varies per indicator)

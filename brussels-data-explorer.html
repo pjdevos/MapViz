@@ -554,6 +554,21 @@
   .var-group-body { padding-top: 6px; }
   .var-group-header.heat { color: #e87a2a; }
   .var-group-header.heat:hover { color: #f0a060; }
+
+  .model-selector { margin-bottom: 8px; }
+  .model-selector select {
+    width: 100%;
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    cursor: pointer;
+    outline: none;
+  }
+  .model-selector select:focus { border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -614,12 +629,22 @@
   </div>
   <div class="scatter-wrap">
     <div class="section-label" style="margin-bottom:8px">Spreiding</div>
+    <div class="model-selector">
+      <select id="model-select" onchange="setModel(this.value)">
+        <option value="linear">Lineair</option>
+        <option value="polynomial">Polynomiaal (gr. 2)</option>
+        <option value="tree">Regressieboom</option>
+        <option value="knn">k-NN (k=7)</option>
+      </select>
+    </div>
     <canvas id="scatter" width="288" height="180"></canvas>
     <div class="scatter-label" id="scatter-label"></div>
   </div>
   <div class="stats-bar" id="stats-bar">
     <div class="stats-row"><span>n wijken</span><span id="st-n">—</span></div>
+    <div class="stats-row"><span>Model</span><span id="st-model">Lineair</span></div>
     <div class="stats-row"><span>R²</span><span id="st-r2">—</span></div>
+    <div class="stats-row"><span>RMSE</span><span id="st-rmse">—</span></div>
     <div class="stats-row"><span>Pearson r</span><span id="st-r">—</span></div>
     <div class="stats-row"><span>Jaar</span><span id="st-year">—</span></div>
   </div>
@@ -652,6 +677,8 @@ let playInterval = null;
 let currentBasemap = 'satellite';
 let basemapLayer = null;
 let heatIslandLayer = null;
+let modelType = 'linear';
+let currentTree = null;
 
 const reversedVars = ["werkloosheidsgraad", "ocmw_aandeel", "ondoordringbaar", "pm25", "no2",
                       "tegemoetkoming", "geluid_ln", "geluid_lden", "bevolkdicht"];
@@ -775,6 +802,213 @@ function multiLinearPredict(district, depV, indVs) {
     totalWeight += w;
   });
   return totalWeight === 0 ? dData[depV] : weightedPrediction / totalWeight;
+}
+
+// =====================================================================
+// POLYNOMIAL REGRESSION
+// =====================================================================
+function polyRegCoeffs(xs, ys, degree) {
+  const n = xs.length;
+  const size = degree + 1;
+  // Build normal equations: (X^T X) beta = X^T y
+  const mat = Array.from({length: size}, () => new Array(size + 1).fill(0));
+  for (let i = 0; i < size; i++) {
+    for (let j = 0; j < size; j++) {
+      let s = 0;
+      for (let k = 0; k < n; k++) s += Math.pow(xs[k], i + j);
+      mat[i][j] = s;
+    }
+    let s = 0;
+    for (let k = 0; k < n; k++) s += Math.pow(xs[k], i) * ys[k];
+    mat[i][size] = s;
+  }
+  // Gaussian elimination with partial pivoting
+  for (let col = 0; col < size; col++) {
+    let maxRow = col;
+    for (let row = col + 1; row < size; row++) {
+      if (Math.abs(mat[row][col]) > Math.abs(mat[maxRow][col])) maxRow = row;
+    }
+    [mat[col], mat[maxRow]] = [mat[maxRow], mat[col]];
+    if (Math.abs(mat[col][col]) < 1e-12) continue;
+    for (let row = col + 1; row < size; row++) {
+      const f = mat[row][col] / mat[col][col];
+      for (let j = col; j <= size; j++) mat[row][j] -= f * mat[col][j];
+    }
+  }
+  // Back substitution
+  const coeffs = new Array(size).fill(0);
+  for (let i = size - 1; i >= 0; i--) {
+    let s = mat[i][size];
+    for (let j = i + 1; j < size; j++) s -= mat[i][j] * coeffs[j];
+    coeffs[i] = Math.abs(mat[i][i]) < 1e-12 ? 0 : s / mat[i][i];
+  }
+  return coeffs;
+}
+
+function polyEval(coeffs, x) {
+  let y = 0;
+  for (let i = 0; i < coeffs.length; i++) y += coeffs[i] * Math.pow(x, i);
+  return y;
+}
+
+function multiPolyPredict(district, depV, indVs) {
+  const dData = getDistrictData(district);
+  const allData = DISTRICTS.map(d => getDistrictData(d));
+  const validData = allData.filter(d => d[depV] != null && indVs.every(iv => d[iv] != null));
+  if (validData.length < 5) return dData[depV];
+
+  let totalWeight = 0, weightedPrediction = 0;
+  indVs.forEach(iv => {
+    if (dData[iv] == null) return;
+    const xs = validData.map(d => d[iv]);
+    const ys = validData.map(d => d[depV]);
+    const coeffs = polyRegCoeffs(xs, ys, 2);
+    const r = pearson(xs, ys);
+    const w = r * r;
+    weightedPrediction += w * polyEval(coeffs, dData[iv]);
+    totalWeight += w;
+  });
+  return totalWeight === 0 ? dData[depV] : weightedPrediction / totalWeight;
+}
+
+// =====================================================================
+// REGRESSION TREE (CART)
+// =====================================================================
+function buildRegressionTree(rows, targetKey, featureKeys, maxDepth, minLeaf) {
+  const targets = rows.map(r => r[targetKey]);
+  const mean = targets.reduce((a, b) => a + b, 0) / targets.length;
+
+  if (maxDepth <= 0 || rows.length < 2 * minLeaf) return { value: mean, n: rows.length };
+
+  const parentVar = targets.reduce((s, v) => s + (v - mean) * (v - mean), 0);
+  if (parentVar < 1e-12) return { value: mean, n: rows.length };
+
+  let bestGain = -Infinity, bestFeature = null, bestSplit = null, bestLeft = null, bestRight = null;
+
+  for (const fk of featureKeys) {
+    const vals = [...new Set(rows.map(r => r[fk]))].sort((a, b) => a - b);
+    for (let i = 0; i < vals.length - 1; i++) {
+      const splitVal = (vals[i] + vals[i + 1]) / 2;
+      const left = rows.filter(r => r[fk] <= splitVal);
+      const right = rows.filter(r => r[fk] > splitVal);
+      if (left.length < minLeaf || right.length < minLeaf) continue;
+
+      const lTargets = left.map(r => r[targetKey]);
+      const rTargets = right.map(r => r[targetKey]);
+      const lMean = lTargets.reduce((a, b) => a + b, 0) / lTargets.length;
+      const rMean = rTargets.reduce((a, b) => a + b, 0) / rTargets.length;
+      const lVar = lTargets.reduce((s, v) => s + (v - lMean) * (v - lMean), 0);
+      const rVar = rTargets.reduce((s, v) => s + (v - rMean) * (v - rMean), 0);
+      const gain = parentVar - lVar - rVar;
+
+      if (gain > bestGain) {
+        bestGain = gain; bestFeature = fk; bestSplit = splitVal;
+        bestLeft = left; bestRight = right;
+      }
+    }
+  }
+
+  if (bestFeature === null) return { value: mean, n: rows.length };
+
+  return {
+    splitVar: bestFeature, splitVal: bestSplit, n: rows.length,
+    left: buildRegressionTree(bestLeft, targetKey, featureKeys, maxDepth - 1, minLeaf),
+    right: buildRegressionTree(bestRight, targetKey, featureKeys, maxDepth - 1, minLeaf)
+  };
+}
+
+function treePredictSingle(node, dataPoint) {
+  if (node.value !== undefined) return node.value;
+  return dataPoint[node.splitVar] <= node.splitVal
+    ? treePredictSingle(node.left, dataPoint)
+    : treePredictSingle(node.right, dataPoint);
+}
+
+function treeDepth(node) {
+  if (node.value !== undefined) return 0;
+  return 1 + Math.max(treeDepth(node.left), treeDepth(node.right));
+}
+
+function treeLeaves(node) {
+  if (node.value !== undefined) return 1;
+  return treeLeaves(node.left) + treeLeaves(node.right);
+}
+
+function rebuildTree() {
+  const allData = DISTRICTS.map(d => getDistrictData(d));
+  const validData = allData.filter(d => d[depVar] != null && indVars.every(iv => d[iv] != null));
+  if (validData.length < 10) { currentTree = null; return; }
+  const rows = validData.map(d => {
+    const row = { _target: d[depVar] };
+    indVars.forEach(iv => row[iv] = d[iv]);
+    return row;
+  });
+  currentTree = buildRegressionTree(rows, '_target', indVars, 3, 5);
+}
+
+function treePredict(dData, depV, indVs) {
+  if (!currentTree) return dData[depV];
+  return treePredictSingle(currentTree, dData);
+}
+
+// =====================================================================
+// k-NN REGRESSION
+// =====================================================================
+function knnPredictDistrict(dData, depV, indVs, validData) {
+  if (validData.length < 3) return dData[depV];
+  const k = Math.min(7, Math.floor(validData.length / 2));
+
+  // Min-max normalization params
+  const mins = {}, maxs = {};
+  indVs.forEach(iv => {
+    const vals = validData.map(d => d[iv]);
+    mins[iv] = Math.min(...vals);
+    maxs[iv] = Math.max(...vals);
+  });
+
+  const normalize = (val, iv) => {
+    const range = maxs[iv] - mins[iv];
+    return range < 1e-12 ? 0 : (val - mins[iv]) / range;
+  };
+
+  // Compute distances
+  const distances = validData.map(d => {
+    let dist2 = 0;
+    indVs.forEach(iv => {
+      if (dData[iv] == null) return;
+      const diff = normalize(dData[iv], iv) - normalize(d[iv], iv);
+      dist2 += diff * diff;
+    });
+    return { dist: Math.sqrt(dist2), target: d[depV] };
+  });
+
+  distances.sort((a, b) => a.dist - b.dist);
+  const nearest = distances.slice(0, k);
+  return nearest.reduce((s, d) => s + d.target, 0) / nearest.length;
+}
+
+// =====================================================================
+// MODEL DISPATCHER
+// =====================================================================
+function predictValue(district, depV, indVs) {
+  const dData = getDistrictData(district);
+  const allData = DISTRICTS.map(d => getDistrictData(d));
+  const validData = allData.filter(d => d[depV] != null && indVs.every(iv => d[iv] != null));
+  if (validData.length < 5) return dData[depV];
+
+  switch (modelType) {
+    case 'polynomial': return multiPolyPredict(district, depV, indVs);
+    case 'tree': return treePredict(dData, depV, indVs);
+    case 'knn': return knnPredictDistrict(dData, depV, indVs, validData);
+    default: return multiLinearPredict(district, depV, indVs);
+  }
+}
+
+function setModel(type) {
+  modelType = type;
+  if (type === 'tree') rebuildTree();
+  updateCorrelation();
+  updateSliderPanel();
 }
 
 // =====================================================================
@@ -962,11 +1196,12 @@ function onYearChange(year) {
   currentYear = year;
   document.getElementById('year-display').textContent = year;
   rebuildDistrictsForYear(year);
+  if (modelType === 'tree') rebuildTree();
   updateMapColors();
   updateCorrelation();
   updateSliderPanel();
   document.getElementById('st-year').textContent = year;
-  document.getElementById('header-info').textContent = `59 wijken · 15 indicatoren · ${year}`;
+  document.getElementById('header-info').textContent = `59 wijken · 39 indicatoren · ${year}`;
 }
 
 function togglePlay() {
@@ -1073,6 +1308,7 @@ function buildGroupedVarButtons(containerEl, mode) {
 function buildVarButtons() {
   buildGroupedVarButtons(document.getElementById('dep-vars'), 'dep');
   buildGroupedVarButtons(document.getElementById('ind-vars'), 'ind');
+  if (modelType === 'tree') rebuildTree();
 }
 
 // =====================================================================
@@ -1123,7 +1359,7 @@ function updateSliderPanel() {
 
   const depV = VARIABELEN[depVar];
   const currentDepVal = data[depVar];
-  const predicted = multiLinearPredict(district, depVar, indVars);
+  const predicted = predictValue(district, depVar, indVars);
 
   if (currentDepVal != null) {
     const delta = predicted - currentDepVal;
@@ -1152,7 +1388,7 @@ function onSlider(lau2, varKey, rawVal) {
   // Update the predicted dep var value in overrides so the map color reflects it
   const district = findDistrict(lau2);
   if (district) {
-    const predicted = multiLinearPredict(district, depVar, indVars);
+    const predicted = predictValue(district, depVar, indVars);
     dataOverrides[lau2][depVar] = predicted;
   }
 
@@ -1197,11 +1433,37 @@ function updateCorrelation() {
   html += '</tbody></table>';
   wrap.innerHTML = html;
 
-  if (indVars[0]) {
-    const pairs = allData.map(d => [d[indVars[0]], d[depVar]]).filter(([a,b]) => a != null && b != null);
-    const r = pearson(pairs.map(p=>p[0]), pairs.map(p=>p[1]));
-    document.getElementById('st-n').textContent = pairs.length;
-    document.getElementById('st-r2').textContent = (r*r).toFixed(3);
+  // Stats bar: model-aware metrics
+  const validData = allData.filter(d => d[depVar] != null && indVars.every(iv => d[iv] != null));
+  if (validData.length >= 5) {
+    const actuals = validData.map(d => d[depVar]);
+    const meanY = actuals.reduce((a, b) => a + b, 0) / actuals.length;
+    const ssTot = actuals.reduce((s, v) => s + (v - meanY) * (v - meanY), 0);
+
+    // Compute model predictions for each data point
+    const predictions = validData.map(d => {
+      const fakeDist = { lau2: d.lau2, naam: '', ...d };
+      switch (modelType) {
+        case 'polynomial': return multiPolyPredict(fakeDist, depVar, indVars);
+        case 'tree': return currentTree ? treePredictSingle(currentTree, d) : d[depVar];
+        case 'knn': return knnPredictDistrict(d, depVar, indVars, validData);
+        default: return multiLinearPredict(fakeDist, depVar, indVars);
+      }
+    });
+
+    const ssRes = actuals.reduce((s, v, i) => s + (v - predictions[i]) * (v - predictions[i]), 0);
+    const r2 = ssTot > 0 ? 1 - ssRes / ssTot : 0;
+    const rmse = Math.sqrt(ssRes / actuals.length);
+    const r = indVars[0] ? pearson(
+      validData.map(d => d[indVars[0]]),
+      validData.map(d => d[depVar])
+    ) : 0;
+
+    const modelNames = { linear: 'Lineair', polynomial: 'Polyn.', tree: 'Boom', knn: 'k-NN' };
+    document.getElementById('st-n').textContent = validData.length;
+    document.getElementById('st-model').textContent = modelNames[modelType] || modelType;
+    document.getElementById('st-r2').textContent = r2.toFixed(3);
+    document.getElementById('st-rmse').textContent = rmse.toFixed(2);
     document.getElementById('st-r').textContent = r.toFixed(3);
     document.getElementById('st-year').textContent = currentYear;
   }
@@ -1249,15 +1511,65 @@ function updateScatter() {
     ctx.beginPath(); ctx.moveTo(x,pad); ctx.lineTo(x,H-pad); ctx.stroke();
   }
 
-  // Regression line
-  const {a,b} = linearRegCoeffs(xs, ys);
+  // Model fit line
   ctx.strokeStyle = 'rgba(232,200,74,0.5)';
   ctx.lineWidth = 1.5;
   ctx.setLineDash([4,3]);
-  ctx.beginPath();
-  ctx.moveTo(px(xMin), py(a + b*xMin));
-  ctx.lineTo(px(xMax), py(a + b*xMax));
-  ctx.stroke();
+
+  if (modelType === 'linear') {
+    const {a,b} = linearRegCoeffs(xs, ys);
+    ctx.beginPath();
+    ctx.moveTo(px(xMin), py(a + b*xMin));
+    ctx.lineTo(px(xMax), py(a + b*xMax));
+    ctx.stroke();
+  } else if (modelType === 'polynomial') {
+    const coeffs = polyRegCoeffs(xs, ys, 2);
+    const steps = 50;
+    ctx.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const xv = xMin + (xMax - xMin) * i / steps;
+      const yv = polyEval(coeffs, xv);
+      i === 0 ? ctx.moveTo(px(xv), py(yv)) : ctx.lineTo(px(xv), py(yv));
+    }
+    ctx.stroke();
+  } else if (modelType === 'tree') {
+    // Build bivariate tree for scatter visualization
+    const treeRows = pairs.map(p => ({ x: p.x, _target: p.y }));
+    const scatterTree = buildRegressionTree(treeRows, '_target', ['x'], 3, 5);
+    // Collect split points and leaf values
+    const segments = [];
+    (function walkTree(node, lo, hi) {
+      if (node.value !== undefined) { segments.push({ lo, hi, val: node.value }); return; }
+      if (node.splitVar === 'x') {
+        walkTree(node.left, lo, Math.min(hi, node.splitVal));
+        walkTree(node.right, Math.max(lo, node.splitVal), hi);
+      } else {
+        segments.push({ lo, hi, val: (node.left.value || 0 + node.right.value || 0) / 2 });
+      }
+    })(scatterTree, xMin, xMax);
+    segments.sort((a, b) => a.lo - b.lo);
+    ctx.beginPath();
+    segments.forEach((seg, i) => {
+      if (i === 0) ctx.moveTo(px(seg.lo), py(seg.val));
+      ctx.lineTo(px(seg.hi), py(seg.val));
+      if (i < segments.length - 1) ctx.lineTo(px(segments[i+1].lo), py(segments[i+1].val));
+    });
+    ctx.stroke();
+  } else if (modelType === 'knn') {
+    const steps = 80;
+    const k = Math.min(7, Math.floor(xs.length / 2));
+    ctx.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const xv = xMin + (xMax - xMin) * i / steps;
+      // kNN for single variable
+      const dists = xs.map((x, j) => ({ dist: Math.abs(x - xv), y: ys[j] }));
+      dists.sort((a, b) => a.dist - b.dist);
+      const yv = dists.slice(0, k).reduce((s, d) => s + d.y, 0) / k;
+      i === 0 ? ctx.moveTo(px(xv), py(yv)) : ctx.lineTo(px(xv), py(yv));
+    }
+    ctx.stroke();
+  }
+
   ctx.setLineDash([]);
 
   // Dots
