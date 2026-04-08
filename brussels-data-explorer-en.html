@@ -1019,7 +1019,9 @@ function colorScale(val, min, max, reversed, varKey) {
   let t = (val - min) / (max - min);
   t = Math.max(0, Math.min(1, t));
   if (reversed) t = 1 - t;
-  const colors = [[15,25,90],[40,80,150],[240,235,130],[220,100,30],[190,40,20]];
+  const colors = reversed
+    ? [[190,40,20],[220,100,30],[240,235,130],[40,80,150],[15,25,90]]
+    : [[15,25,90],[40,80,150],[240,235,130],[220,100,30],[190,40,20]];
   const seg = (colors.length - 1) * t;
   const i = Math.floor(seg);
   const f = seg - i;
