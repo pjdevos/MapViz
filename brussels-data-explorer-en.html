@@ -860,7 +860,9 @@ function initMap() {
       });
       layer.on('mouseout', e => {
         if (!selectedDistrict || selectedDistrict !== lau2) {
-          geojsonLayer.resetStyle(e.target);
+          const { min, max } = getDepRange();
+          const rev = reversedVars.includes(depVar);
+          e.target.setStyle(styleFeature(feature, min, max, rev));
           if (selectedDistrict && layerByLau2[selectedDistrict])
             layerByLau2[selectedDistrict].setStyle({ weight: 3, fillOpacity: 0.7, color: '#e8c84a' });
         }
@@ -1071,9 +1073,8 @@ function buildVarButtons() {
 // =====================================================================
 function selectDistrict(lau2) {
   selectedDistrict = lau2;
-  geojsonLayer.eachLayer(layer => geojsonLayer.resetStyle(layer));
+  updateMapColors();
   if (layerByLau2[lau2]) {
-    layerByLau2[lau2].setStyle({ weight: 3, fillOpacity: 0.7, color: '#e8c84a' });
     layerByLau2[lau2].bringToFront();
   }
   updateSliderPanel();
