@@ -1,4 +1,6 @@
 {
+  "buildCommand": "npm run build || true",
+  "outputDirectory": ".",
   "rewrites": [
     { "source": "/", "destination": "/brussels-data-explorer.html" }
   ]
