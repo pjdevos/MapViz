@@ -248,11 +248,13 @@ function convertExcel() {
   const neighborhoods = {};
 
   for (let r = 3; r <= range.e.r; r++) {
-    const code = cell(r, 0);
-    const name = cell(r, 1);
+    const code = cell(r, 2);
+    const name = cell(r, 1) || cell(r, 3);
     if (code === null || code === undefined || !name) continue;
-    const lau2 = parseInt(code, 10);
-    if (isNaN(lau2) || lau2 === 0) continue;
+    // Skip rows where code is not a whole number (e.g. summary rows with decimals)
+    if (typeof code !== 'number' || code !== Math.floor(code)) continue;
+    const lau2 = code;
+    if (lau2 === 0) continue;
 
     const timeseries = {};
     const latest = {};
