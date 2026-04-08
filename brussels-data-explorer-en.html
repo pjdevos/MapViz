@@ -995,6 +995,10 @@ function togglePlay() {
 // VAR BUTTONS
 // =====================================================================
 function buildGroupedVarButtons(containerEl, mode) {
+  // Preserve open/closed state
+  const openGroups = new Set();
+  containerEl.querySelectorAll('.var-group:not(.collapsed)').forEach(el => openGroups.add(el.dataset.groupId));
+
   containerEl.innerHTML = '';
 
   VAR_GROUPS.forEach(group => {
@@ -1002,7 +1006,7 @@ function buildGroupedVarButtons(containerEl, mode) {
     if (groupVars.length === 0) return;
 
     const groupEl = document.createElement('div');
-    groupEl.className = 'var-group collapsed';
+    groupEl.className = 'var-group' + (openGroups.has(group.id) ? '' : ' collapsed');
     groupEl.dataset.groupId = group.id;
 
     const header = document.createElement('div');
