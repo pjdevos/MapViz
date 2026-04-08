@@ -885,7 +885,8 @@ function styleFeature(feature, min, max, reversed) {
   const district = findDistrict(feature.properties.lau2);
   const val = district ? getDistrictData(district)[depVar] : null;
   if (val == null) return { fillColor: '#1a1b26', fillOpacity: 0.15, color: 'rgba(255,255,255,0.2)', weight: 0.5, opacity: 0.4 };
-  return { fillColor: colorScale(val, min, max, reversed, depVar), fillOpacity: 0.5, color: 'rgba(255,255,255,0.4)', weight: 1.2, opacity: 0.8 };
+  const fo = heatVulnVars.has(depVar) ? 0.35 : 0.5;
+  return { fillColor: colorScale(val, min, max, reversed, depVar), fillOpacity: fo, color: 'rgba(255,255,255,0.4)', weight: 1.2, opacity: 0.8 };
 }
 
 function updateTooltip(layer, feature) {
@@ -919,7 +920,8 @@ function updateMapColors() {
     if (val == null) {
       layer.setStyle({ fillColor: '#1a1b26', fillOpacity: 0.25 });
     } else {
-      layer.setStyle({ fillColor: colorScale(val, min, max, reversed, depVar), fillOpacity: 0.75, color: '#2a2d3e', weight: 1 });
+      const fo = heatVulnVars.has(depVar) ? 0.45 : 0.75;
+      layer.setStyle({ fillColor: colorScale(val, min, max, reversed, depVar), fillOpacity: fo, color: '#2a2d3e', weight: 1 });
     }
     updateTooltip(layer, layer.feature);
   });
