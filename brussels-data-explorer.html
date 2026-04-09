@@ -385,6 +385,7 @@
   .scatter-wrap {
     padding: 16px;
     border-top: 1px solid var(--border);
+    position: relative;
   }
 
   canvas#scatter {
@@ -637,7 +638,8 @@
         <option value="knn">k-NN (k=7)</option>
       </select>
     </div>
-    <canvas id="scatter" width="288" height="180"></canvas>
+    <canvas id="scatter" width="288" height="180" style="cursor:crosshair"></canvas>
+    <div id="scatter-tooltip" style="display:none;position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-family:var(--mono);font-size:9px;color:var(--text);pointer-events:none;white-space:nowrap;z-index:10;"></div>
     <div class="scatter-label" id="scatter-label"></div>
   </div>
   <div class="stats-bar" id="stats-bar">
@@ -1491,7 +1493,7 @@ function updateScatter() {
   if (!xVar || !yVar) return;
 
   const allData = DISTRICTS.map(d => getDistrictData(d));
-  const pairs = allData.map(d => ({ x: d[xVar], y: d[yVar], lau2: d.lau2 })).filter(p => p.x != null && p.y != null);
+  const pairs = allData.map(d => ({ x: d[xVar], y: d[yVar], lau2: d.lau2, naam: d.naam || '' })).filter(p => p.x != null && p.y != null);
   if (pairs.length < 3) return;
 
   const xs = pairs.map(p => p.x), ys = pairs.map(p => p.y);
@@ -1587,7 +1589,55 @@ function updateScatter() {
     const r = pearson(xs, ys);
     label.textContent = `${VARIABELEN[xVar]?.label || xVar} x ${VARIABELEN[yVar]?.label || yVar} (r=${r.toFixed(2)}, ${currentYear})`;
   }
+
+  // Store for hover tooltip
+  canvas._scatterData = { pairs, px, py, xVar, yVar };
 }
+
+// Scatter tooltip handler (attached once)
+(function initScatterTooltip() {
+  let attached = false;
+  const observer = new MutationObserver(() => {
+    const canvas = document.getElementById('scatter');
+    if (canvas && !attached) {
+      attached = true;
+      const tooltip = document.getElementById('scatter-tooltip');
+
+      canvas.addEventListener('mousemove', e => {
+        const sd = canvas._scatterData;
+        if (!sd || !tooltip) return;
+        const rect = canvas.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+        const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+        let closest = null, minDist = Infinity;
+        sd.pairs.forEach(p => {
+          const dx = sd.px(p.x) - mx, dy = sd.py(p.y) - my;
+          const d = dx*dx + dy*dy;
+          if (d < minDist) { minDist = d; closest = p; }
+        });
+
+        if (closest && minDist < 400) { // within ~20px
+          const xLabel = VARIABELEN[sd.xVar]?.label || sd.xVar;
+          const yLabel = VARIABELEN[sd.yVar]?.label || sd.yVar;
+          tooltip.innerHTML = `<strong>${closest.naam}</strong><br>${xLabel}: ${formatValue(sd.xVar, closest.x)}<br>${yLabel}: ${formatValue(sd.yVar, closest.y)}`;
+          const tx = e.clientX - canvas.closest('.scatter-wrap').getBoundingClientRect().left + 12;
+          const ty = e.clientY - canvas.closest('.scatter-wrap').getBoundingClientRect().top - 10;
+          tooltip.style.left = tx + 'px';
+          tooltip.style.top = ty + 'px';
+          tooltip.style.display = 'block';
+        } else {
+          tooltip.style.display = 'none';
+        }
+      });
+
+      canvas.addEventListener('mouseleave', () => {
+        if (tooltip) tooltip.style.display = 'none';
+      });
+    }
+  });
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+})();
 
 // =====================================================================
 // LOAD & INIT
