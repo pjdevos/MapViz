@@ -179,21 +179,25 @@ const INDICATOR_MAP = [
   { prefix: "Bedekkingsgraad door hoge vegetatie", key: "bedekkingsgraad_veg", label: "Hoge vegetatie", unit: "%" },
   { prefix: "Aantal verkopen van appartementen", key: "aantal_verkopen_app", label: "Verkopen app.", unit: "aantal" },
   { prefix: "Oppervlakte", key: "oppervlakte", label: "Oppervlakte", unit: "km²" },
-  // Berekende kwetsbaarheidsindex (gewogen samengestelde index, 0-100)
-  // Gebaseerd op Lanza et al. (2024) en Vlaamse Ouderenraad armoederisico-data
+  // Berekende kwetsbaarheidsindex (gewogen samengestelde z-score index)
+  // Gebaseerd op Clark et al. (2024), Environment International, 191, 108988
+  // Score = gewogen som van gewinsoriseerde z-scores (gemiddelde Brussel = 0)
   // Fransen en EU-14 bewust uitgesloten (welgestelde expats)
-  { prefix: "Kwetsbaarheidsindex (totaal)", key: "kwetsbaarheid_totaal", label: "Kwetsbaarheidsindex (totaal)", unit: "0-100" },
-  { prefix: "Kwetsbaarheidsindex: Sociaal-economisch", key: "kwetsbaarheid_sociaal_eco", label: "Kwetsbaarheidsindex: Soc.-eco.", unit: "0-100" },
-  { prefix: "Kwetsbaarheidsindex: Demografisch", key: "kwetsbaarheid_demografisch", label: "Kwetsbaarheidsindex: Demografisch", unit: "0-100" },
-  { prefix: "Kwetsbaarheidsindex: Milieu-blootstelling", key: "kwetsbaarheid_milieu", label: "Kwetsbaarheidsindex: Milieu", unit: "0-100" },
-  { prefix: "Kwetsbaarheidsindex: Woonsituatie", key: "kwetsbaarheid_wonen", label: "Kwetsbaarheidsindex: Wonen", unit: "0-100" },
+  { prefix: "Kwetsbaarheidsindex (totaal)", key: "kwetsbaarheid_totaal", label: "Kwetsbaarheidsindex (totaal)", unit: "z-score" },
+  { prefix: "Kwetsbaarheidsindex: Sociaal-economisch", key: "kwetsbaarheid_sociaal_eco", label: "Kwetsbaarheidsindex: Soc.-eco.", unit: "z-score" },
+  { prefix: "Kwetsbaarheidsindex: Demografisch", key: "kwetsbaarheid_demografisch", label: "Kwetsbaarheidsindex: Demografisch", unit: "z-score" },
+  { prefix: "Kwetsbaarheidsindex: Milieu-blootstelling", key: "kwetsbaarheid_milieu", label: "Kwetsbaarheidsindex: Milieu", unit: "z-score" },
+  { prefix: "Kwetsbaarheidsindex: Woonsituatie", key: "kwetsbaarheid_wonen", label: "Kwetsbaarheidsindex: Wonen", unit: "z-score" },
 ];
 
 function convertExcel() {
   console.log("\nParsing Excel...");
   // Gebruik het bestand mét kwetsbaarheidsindex-kolommen indien beschikbaar,
   // anders val terug op het origineel.
-  const xlsxFile = join(ROOT, "Data Brussels Neighborhoods v2.xlsx");
+  const xlsxWithIndex = join(ROOT, "Data Brussels Neighborhoods v2 + Kwetsbaarheidsindex.xlsx");
+  const xlsxOriginal = join(ROOT, "Data Brussels Neighborhoods v2.xlsx");
+  let xlsxFile;
+  try { XLSX.readFile(xlsxWithIndex); xlsxFile = xlsxWithIndex; } catch (_) { xlsxFile = xlsxOriginal; }
   console.log(`  Bestand: ${xlsxFile.split("/").pop()}`);
   const wb = XLSX.readFile(xlsxFile);
   const ws = wb.Sheets[wb.SheetNames[0]];
@@ -248,8 +252,8 @@ function convertExcel() {
   const neighborhoods = {};
 
   for (let r = 3; r <= range.e.r; r++) {
-    const code = cell(r, 2);
-    const name = cell(r, 1) || cell(r, 3);
+    const code = cell(r, 0);
+    const name = cell(r, 1);
     if (code === null || code === undefined || !name) continue;
     // Skip rows where code is not a whole number (e.g. summary rows with decimals)
     if (typeof code !== 'number' || code !== Math.floor(code)) continue;
