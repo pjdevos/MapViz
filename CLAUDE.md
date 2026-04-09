@@ -8,7 +8,7 @@ Interactive map visualization of the Brussels Capital Region showing socio-econo
 - **Fonts**: IBM Plex Sans + IBM Plex Mono (Google Fonts CDN)
 - **Pre-processing**: Node.js scripts (xlsx, proj4, fast-xml-parser)
 - **Hosting**: Vercel (static deployment from GitHub)
-- **No build tools** — static files served directly
+- **Build**: `npm run build` regenerates data from Excel
 
 ## Project Structure
 ```
@@ -25,22 +25,25 @@ MapVizApp/
   package.json
   # Source data files:
   UrbAdm_StatisticalUnits.gml          # 145 monitoring districts, EPSG:3035
-  Data Brussels Neighborhoods v2.xlsx   # 57 wijken × 39 indicators (transposed)
+  Data Brussels Neighborhoods v2.xlsx   # 56 wijken × 39 indicators (transposed)
 ```
 
 ## Data Pipeline
 1. `scripts/prepare-data.mjs` converts GML→GeoJSON (EPSG:3035→WGS84) and Excel→JSON
 2. Data source: `Data Brussels Neighborhoods v2.xlsx` (single source of truth)
-3. Data joined via LAU2 code (Excel column A = GML base2:identifier)
-4. Frontend loads pre-generated JSON/GeoJSON files
+3. LAU2 code read from Excel column 0 (must be integer; decimal rows are skipped)
+4. Data joined via LAU2 code (Excel col 0 = GML thematicId identifier)
+5. Frontend loads pre-generated JSON/GeoJSON files
+6. **Workflow**: edit Excel → `npm run build` → commit data/ + Excel → push → Vercel auto-deploys
 
 ## Design System
 - Dark theme: `--bg: #0e0f14`, `--surface: #161720`, `--accent: #e8c84a` (yellow), `--accent2: #4a9de8` (blue), `--accent3: #e84a6a` (red)
 - 3-column layout: 340px left panel | map | 300px right panel
 - Monospace for data, sans-serif for UI text
-- Two color scales:
-  - Default: dark blue → teal → yellow (standard indicators)
-  - Heat vulnerability: navy blue → light yellow → orange-red (kwetsbaarheidsindex vars)
+- Unified color scale: navy blue → light yellow → orange-red (all variables)
+  - Normal vars: blue (low) → yellow → red (high)
+  - Reversed vars (werkloosheid, etc.): red (high/bad) → yellow → blue (low/good)
+  - Heat vulnerability vars rendered with lower opacity (0.35/0.45) for heat island overlay
 
 ## Language
 - UI available in Dutch (NL) and English (EN), toggle button in header
@@ -70,4 +73,5 @@ MapVizApp/
 ## GitHub & Deployment
 - Repository: https://github.com/pjdevos/MapViz
 - Hosted on Vercel: auto-deploys from main branch
+- vercel.json: `buildCommand: "npm run build || true"`, `outputDirectory: "."`
 - Root URL serves NL version via vercel.json rewrite
