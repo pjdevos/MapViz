@@ -2,13 +2,14 @@
 
 ## Wat is BXL DataMap?
 
-BXL DataMap is een interactieve webapplicatie waarmee je sociaal-economische data van het Brussels Hoofdstedelijk Gewest kunt verkennen op een kaart. De app toont 59 monitoringwijken met echte data van bronnen zoals IBSA en Statbel.
+BXL DataMap is een interactieve webapplicatie waarmee je sociaal-economische data van het Brussels Hoofdstedelijk Gewest kunt verkennen op een kaart. De app toont 56 monitoringwijken met echte data van bronnen zoals IBSA en Statbel.
 
 Je kunt:
 - Variabelen visualiseren op een choropleth-kaart
 - Correlaties berekenen tussen variabelen
+- Verschillende statistische modellen toepassen (lineair, polynomiaal, regressieboom, k-NN)
 - Een what-if analyse uitvoeren: wat als de werkloosheid in een wijk daalt?
-- Tijdreeksen afspelen van 2005 tot 2025
+- Tijdreeksen afspelen van 1981 tot 2025
 
 ---
 
@@ -19,7 +20,7 @@ Je kunt:
 
 ### Stappen
 
-1. Open een terminal in de map `Map Viz App`
+1. Open een terminal in de map `MapVizApp`
 
 2. Installeer de afhankelijkheden:
    ```
@@ -28,7 +29,7 @@ Je kunt:
 
 3. Genereer de databestanden (eenmalig, of na wijziging van de brondata):
    ```
-   node scripts/prepare-data.mjs
+   npm run build
    ```
 
 4. Start een lokale webserver:
@@ -39,6 +40,8 @@ Je kunt:
 5. Open je browser op het getoonde adres (standaard `http://localhost:3000`)
 
 6. Klik op `brussels-data-explorer.html`
+
+**Online versie**: De app is ook beschikbaar via Vercel (auto-deploy vanuit GitHub).
 
 ---
 
@@ -91,9 +94,9 @@ Onder de jaar-slider staan twee secties:
 
 ### 3. Kaart
 
-De kaart toont de 59 monitoringwijken als gekleurde polygonen.
+De kaart toont de 56 monitoringwijken als gekleurde polygonen.
 
-- **Kleurschaal**: van donkerblauw (laag) naar geel (hoog) voor de geselecteerde afhankelijke variabele
+- **Kleurschaal**: marineblauw (laag) → lichtgeel (gemiddeld) → oranjerood (hoog). Bij "omgekeerde" variabelen (bijv. werkloosheid) staat rood voor hoge (ongunstige) waarden en blauw voor lage (gunstige) waarden.
 - **Hover** over een wijk om de naam en waarde te zien
 - **Klik** op een wijk om deze te selecteren voor de what-if analyse
 - Grijze gebieden hebben geen beschikbare data (parken, industriezones, etc.)
@@ -107,7 +110,7 @@ Na het klikken op een wijk verschijnen sliders in het linker paneel:
 - Sleep een slider om de waarde aan te passen
 - De **geschatte waarde** van de afhankelijke variabele wordt direct herberekend
 - De delta (verschil) wordt groen (positief) of rood (negatief) weergegeven
-- Het regressiemodel gebruikt gewogen lineaire regressie (gewicht = R² per variabele)
+- Het gebruikte model hangt af van de geselecteerde methode (zie "Statistische modellen")
 
 ### 5. Correlatiematrix
 
@@ -119,46 +122,111 @@ Het rechter paneel toont een correlatiematrix:
 - **Klik** op een cel om die combinatie in de scatterplot te tonen
 - De waarde is de Pearson-correlatie (r) tussen -1 en +1
 
-### 6. Scatterplot
+### 6. Statistische modellen
 
-Onder de correlatiematrix:
+Boven de scatterplot staat een **model-selector** (dropdown) waarmee je het voorspellingsmodel kunt kiezen:
+
+| Model | Beschrijving | Wanneer gebruiken? |
+|-------|-------------|-------------------|
+| **Lineair** | Gewogen bivariate lineaire regressie (gewicht = R² per variabele) | Standaard. Goed bij lineaire verbanden. |
+| **Polynomiaal (gr. 2)** | Kwadratische fit via normaalvergelijkingen + Gauss-eliminatie | Wanneer het verband een boog of U-vorm vertoont. |
+| **Regressieboom** | CART-algoritme: recursief opsplitsen op variantiereductie (max diepte 3, min 5 per blad) | Bij niet-lineaire, stapsgewijze patronen. Makkelijk interpreteerbaar. |
+| **k-NN (k=7)** | k-Nearest Neighbors: gemiddelde van de 7 dichtstbijzijnde wijken (Euclidische afstand, min-max genormaliseerd) | Bij complexe, lokale patronen zonder duidelijke functionele vorm. |
+
+Het gekozen model wordt gebruikt voor:
+- De **what-if analyse** (slider-voorspellingen)
+- De **regressiecurve** in de scatterplot
+- De berekening van **R²** en **RMSE** in de statistieken
+
+### 7. Scatterplot
+
+Onder de model-selector:
 
 - Toont de spreiding van twee variabelen
-- **Gestippelde gele lijn** = lineaire regressielijn
+- **Gestippelde gele lijn/curve** = fit van het geselecteerde model:
+  - Lineair: rechte lijn
+  - Polynomiaal: vloeiende parabolische curve
+  - Regressieboom: trapfunctie (horizontale segmenten met verticale sprongen)
+  - k-NN: vloeiende niet-lineaire curve
 - **Blauw punt** = een wijk
 - **Geel punt** = de geselecteerde wijk
 - De correlatie (r) en het huidige jaar staan eronder
 
-### 7. Statistieken
+### 8. Statistieken
 
 Onderaan het rechter paneel:
 
 - **n wijken**: aantal wijken met beschikbare data
-- **R²**: verklaarde variantie (hoe goed verklaart de eerste onafhankelijke variabele de afhankelijke?)
-- **Pearson r**: correlatiecoëfficiënt
+- **Model**: het actieve voorspellingsmodel
+- **R²**: verklaarde variantie, berekend op basis van het gekozen model (1 - SS_res/SS_tot)
+- **RMSE**: Root Mean Square Error — gemiddelde voorspellingsfout in de eenheid van de afhankelijke variabele
+- **Pearson r**: correlatiecoëfficiënt (altijd lineair, ongeacht het gekozen model)
 - **Jaar**: het huidige geselecteerde jaar
 
 ---
 
 ## Beschikbare indicatoren
 
+De 39 indicatoren zijn georganiseerd in 4 uitklapbare categorieën:
+
+**Bevolking (19 variabelen)**
+
 | Indicator | Eenheid | Periode |
 |-----------|---------|---------|
-| OCMW-inkomen | % | 2005–2023 |
-| Ondoordringbare opp. | % | 2022 |
-| Sociale woningen | /100 huish. | 2010–2024 |
-| Nabijheid groen | % | 2012 |
-| Verhoogde tegemoetkoming | % | 2010–2024 |
+| Totale bevolking | inwoners | 2005–2025 |
 | Bevolkingsdichtheid | inw/km² | 2005–2025 |
+| Oppervlakte | km² | 2020–2024 |
+| Aantal mannen | personen | 2005–2025 |
+| Aantal vrouwen | personen | 2005–2025 |
+| Geslachtsverhouding | % | 2005–2025 |
+| Aandeel 65-79 jaar | % | 1997–2025 |
+| Aandeel 80+ | % | 1981–2025 |
+| Senioriteitscoëff. (80+/60+) | % | 2019–2025 |
+| Alleenwonenden 65+ | % | 2001–2024 |
+| Aandeel Fransen | % | 1997–2025 |
+| Europa van 14 | % | 2000–2025 |
+| Nieuwe EU-lidstaten | % | 1997–2025 |
+| Aandeel Turken | % | 1997–2025 |
+| Latijns-Amerika | % | 1996–2025 |
+| Noord-Afrika | % | 1997–2025 |
+| Sub-Saharisch Afrika | % | 1997–2025 |
+| Totaal vreemdelingen | personen | 1981–2025 |
+| Gemeentelijke verkozenen | — | 2006–2012 |
+
+**Milieu (8 variabelen)**
+
+| Indicator | Eenheid | Periode |
+|-----------|---------|---------|
+| Ondoordringbare opp. | % | 2022 |
+| Nabijheid groen | % | 2012 |
+| Vegetatiegraad | % | 2021–2023 |
+| Hoge vegetatie | % | 2021 |
 | Fijnstof PM2.5 | µg/m³ | 2018–2023 |
 | Stikstofdioxide NO2 | µg/m³ | 2018–2023 |
-| Mediaan inkomen | € | 2005–2022 |
-| Mediaan app. prijs | € | 2013–2023 |
-| Totale bevolking | inwoners | 2005–2025 |
-| Vegetatiegraad | % | 2021–2023 |
-| Werkloosheidsgraad | % | 2010–2023 |
 | Verkeersgeluid Lden | dB(A) | 2021 |
 | Verkeersgeluid Ln | dB(A) | 2021 |
+
+**Sociaal-economisch (7 variabelen)**
+
+| Indicator | Eenheid | Periode |
+|-----------|---------|---------|
+| Werkloosheidsgraad | % | 2010–2023 |
+| Mediaan inkomen | € | 2005–2022 |
+| OCMW-inkomen | % | 2005–2023 |
+| Verhoogde tegemoetkoming | % | 2010–2024 |
+| Sociale woningen | /100 huish. | 2010–2024 |
+| Mediaan app. prijs | € | 2013–2023 |
+| Verkopen app. | aantal | 2013–2023 |
+
+**Hittekwetsbaarheid (5 variabelen)**
+
+| Indicator | Eenheid | Periode |
+|-----------|---------|---------|
+| Kwetsbaarheidsindex (totaal) | index | 2025 |
+| Kwetsbaarheidsindex: Soc.-eco. | index | 2025 |
+| Kwetsbaarheidsindex: Demografisch | index | 2025 |
+| Kwetsbaarheidsindex: Milieu | index | 2025 |
+| Kwetsbaarheidsindex: Wonen | index | 2025 |
 
 ---
 
@@ -189,7 +257,7 @@ Het script `scripts/prepare-data.mjs` voert twee conversies uit:
 
 1. Voeg kolommen toe aan het Excel-bestand (zelfde structuur: indicator in rij 1, eenheid in rij 2, jaar in rij 3)
 2. Voeg de indicator toe aan `INDICATOR_MAP` in `scripts/prepare-data.mjs`
-3. Draai `node scripts/prepare-data.mjs` opnieuw
+3. Draai `npm run build` opnieuw
 4. Herlaad de browser
 
 ---
@@ -200,7 +268,7 @@ Het script `scripts/prepare-data.mjs` voert twee conversies uit:
 Niet elke indicator heeft data voor elk jaar en elke wijk. "n.b." betekent "niet beschikbaar".
 
 **Waarom zijn sommige gebieden grijs?**
-Het GML-bestand bevat 141 polygonen, maar slechts 57 daarvan hebben socio-economische data. De rest zijn parken, begraafplaatsen of industriegebieden.
+Het GML-bestand bevat 145 polygonen, maar slechts 56 daarvan hebben socio-economische data. De rest zijn parken, begraafplaatsen of industriegebieden.
 
 **Kan ik eigen data toevoegen?**
 Ja — zie de sectie "Nieuwe data toevoegen" hierboven.
